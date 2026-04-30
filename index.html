@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Listing Tool">
 <meta name="theme-color" content="#141414">
-<title>Listing Tool v1.0</title>
+<title>Listing Tool v1.1</title>
 
 <!-- PWA manifest inline -->
 <script>
@@ -595,7 +595,7 @@ input[type=number]::-webkit-inner-spin-button {
   <div class="header">
     <div>
       <div class="header-title">Listing Tool</div>
-      <div class="header-version">KeyCrafted Studio · v1.0</div>
+      <div class="header-version">KeyCrafted Studio · v1.1</div>
     </div>
     <div style="font-size:22px;">🗂️</div>
   </div>
@@ -1259,16 +1259,29 @@ async function exportAll() {
         return new File([blob], filename, { type: 'image/png' });
       }));
 
-      await navigator.share({ files, title: 'Listing Images' });
-      prog.textContent = `✓ ${session.length} images shared`;
+      // Check if file sharing is supported before trying
+      if (navigator.canShare && navigator.canShare({ files })) {
+        await navigator.share({ files, title: 'Listing Images' });
+        prog.textContent = `✓ Shared — save images to Photos from share sheet`;
+      } else {
+        // File sharing not supported — open each image so user can long-press save
+        prog.textContent = 'Long-press each image → Save to Photos';
+        for (const { png, filename } of rendered) {
+          const w = window.open('', '_blank');
+          if (w) {
+            w.document.write(`<html><body style="margin:0;background:#000">
+              <p style="color:#fff;font-family:sans-serif;padding:10px;font-size:13px">
+                Long-press image → Save to Photos
+              </p>
+              <img src="${png}" style="width:100%;display:block" />
+            </body></html>`);
+          }
+          await new Promise(r => setTimeout(r, 800));
+        }
+      }
     } catch(err) {
       if (err.name !== 'AbortError') {
-        // Fallback: open images one by one so user can long-press save
-        prog.textContent = 'Long-press each image → Save to Photos';
-        for (const { png } of rendered) {
-          window.open(png, '_blank');
-          await new Promise(r => setTimeout(r, 600));
-        }
+        prog.textContent = `Error: ${err.message}`;
       } else {
         prog.textContent = 'Share cancelled';
       }
