@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Listing Tool">
 <meta name="theme-color" content="#141414">
-<title>Listing Tool v1.3</title>
+<title>Listing Tool v1.4</title>
 
 <!-- PWA manifest inline -->
 <script>
@@ -648,7 +648,7 @@ input[type=number]::-webkit-inner-spin-button {
   <div class="header">
     <div>
       <div class="header-title">Listing Tool</div>
-      <div class="header-version">KeyCrafted Studio · v1.3</div>
+      <div class="header-version">KeyCrafted Studio · v1.4</div>
     </div>
     <div style="font-size:22px;">🗂️</div>
   </div>
@@ -992,7 +992,17 @@ function setTheme(t) {
   currentTheme = t;
   document.getElementById('tbtn-light').className = 'theme-btn' + (t==='light' ? ' active-light' : '');
   document.getElementById('tbtn-dark').className  = 'theme-btn' + (t==='dark'  ? ' active-dark'  : '');
-  if (activeIdx >= 0) drawPreview();
+  // Recalculate scale for all session photos since fit logic changes per theme
+  session.forEach((e, i) => {
+    const img = new Image();
+    img.onload = () => {
+      e.scale = autoFit(img.naturalWidth, img.naturalHeight);
+      e.ox = 0; e.oy = 0;
+      if (i === activeIdx) { scale = e.scale; ox = 0; oy = 0; drawPreview(); }
+    };
+    img.src = e.src;
+  });
+  if (session.length === 0) drawPreview();
 }
 
 /* ══════════════════════════════════
@@ -1818,10 +1828,21 @@ function checkKey() {
   const st  = document.getElementById('l-api-status');
   const btn = document.getElementById('l-gen-btn');
   const ok  = k.startsWith('sk-ant-') && k.length > 20;
-  st.textContent = ok ? '✓ Set' : '—';
+  st.textContent = ok ? '✓ Saved' : '—';
   st.className   = 'api-status' + (ok ? ' ok' : '');
   btn.disabled   = !ok;
+  // Persist to localStorage so it survives sessions
+  if (ok) localStorage.setItem('kc_api_key', k);
 }
+
+// Restore API key on load
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('kc_api_key');
+  if (saved) {
+    document.getElementById('l-apikey').value = saved;
+    checkKey();
+  }
+});
 
 /* ══════════════════════════════════
    GENERATE LISTING
