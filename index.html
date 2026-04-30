@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Listing Tool">
 <meta name="theme-color" content="#141414">
-<title>Listing Tool v1.2</title>
+<title>Listing Tool v1.3</title>
 
 <!-- PWA manifest inline -->
 <script>
@@ -551,6 +551,59 @@ input[type=number]::-webkit-inner-spin-button {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+  .btn-analyze {
+    background: #1a2a3a;
+    color: #7ab8e8;
+    border: 1px solid #2a4a6a;
+  }
+  .btn-analyze:disabled { opacity: 0.35; }
+
+  .analysis-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .analysis-row {
+    display: flex;
+    align-items: center;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .analysis-field {
+    font-size: 8px;
+    letter-spacing: 0.28em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    padding: 10px 12px;
+    width: 110px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+  }
+
+  .analysis-value {
+    font-size: 13px;
+    color: var(--text);
+    padding: 10px 12px;
+    flex: 1;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .analysis-value.empty { color: var(--text-faint); font-style: italic; }
+
+  .analysis-confidence {
+    font-size: 11px;
+    padding: 10px 10px;
+    flex-shrink: 0;
+  }
+  .conf-high { color: var(--green); }
+  .conf-med  { color: var(--amber); }
+  .conf-low  { color: var(--text-faint); }
+
 /* ── TOAST ── */
 .toast {
   position: fixed;
@@ -595,7 +648,7 @@ input[type=number]::-webkit-inner-spin-button {
   <div class="header">
     <div>
       <div class="header-title">Listing Tool</div>
-      <div class="header-version">KeyCrafted Studio · v1.2</div>
+      <div class="header-version">KeyCrafted Studio · v1.3</div>
     </div>
     <div style="font-size:22px;">🗂️</div>
   </div>
@@ -634,8 +687,8 @@ input[type=number]::-webkit-inner-spin-button {
         <div class="field">
           <label>Theme</label>
           <div class="theme-toggle">
-            <button class="theme-btn active-light" id="tbtn-light" onclick="setTheme('light')">☀ Light</button>
-            <button class="theme-btn" id="tbtn-dark" onclick="setTheme('dark')">◗ Dark</button>
+            <button class="theme-btn" id="tbtn-light" onclick="setTheme('light')">☀ Light</button>
+            <button class="theme-btn active-dark" id="tbtn-dark" onclick="setTheme('dark')">◗ Dark</button>
           </div>
         </div>
       </div>
@@ -718,6 +771,27 @@ input[type=number]::-webkit-inner-spin-button {
 
       <div style="font-size:9px; color:var(--text-faint); text-align:center; letter-spacing:0.15em; text-transform:uppercase;">
         Pinch to zoom · Drag to reposition
+      </div>
+
+      <!-- Analyze button -->
+      <button class="btn btn-analyze" id="analyze-btn" onclick="analyzePhoto()" disabled>
+        <span id="analyze-icon">🔍</span> Analyze Photo with Claude
+      </button>
+
+      <!-- Analysis review panel -->
+      <div id="analysis-panel" style="display:none;">
+        <div class="section-head" style="margin-top:4px;">Analysis Results — Review & Apply</div>
+
+        <div class="analysis-grid" id="analysis-grid"></div>
+
+        <div style="display:flex; gap:10px; margin-top:4px;">
+          <button class="btn btn-primary" onclick="applyAnalysis()" style="flex:2;">
+            ✓ Apply to Fields
+          </button>
+          <button class="btn btn-secondary" onclick="dismissAnalysis()" style="flex:1;">
+            Dismiss
+          </button>
+        </div>
       </div>
 
       <!-- Export -->
@@ -912,7 +986,7 @@ function switchTab(name) {
 /* ══════════════════════════════════
    THEME
 ══════════════════════════════════ */
-let currentTheme = 'light';
+let currentTheme = 'dark';
 
 function setTheme(t) {
   currentTheme = t;
@@ -1038,6 +1112,7 @@ function renderFilmstrip() {
   wrap.style.display = session.length > 0 ? 'flex' : 'none';
   document.getElementById('preview-wrap').style.display = session.length > 0 ? 'block' : 'none';
   document.getElementById('export-btn').disabled = session.length === 0;
+  document.getElementById('analyze-btn').disabled = session.length === 0;
 }
 
 /* ══════════════════════════════════
@@ -1504,6 +1579,207 @@ function fallbackOpenImages(rendered, prog) {
   });
 
   document.body.appendChild(container);
+}
+
+}
+
+/* ══════════════════════════════════
+   PHOTO ANALYSIS
+══════════════════════════════════ */
+let lastAnalysis = null; // store result for Apply
+
+async function analyzePhoto() {
+  const apiKey = document.getElementById('l-apikey').value.trim();
+  if (!apiKey) { showToast('Add API key in Listing tab first'); return; }
+  if (activeIdx < 0) { showToast('No photo selected'); return; }
+
+  const btn  = document.getElementById('analyze-btn');
+  const icon = document.getElementById('analyze-icon');
+  btn.disabled = true;
+  icon.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    // Get base64 image from current active photo
+    const src = session[activeIdx].src;
+    const base64 = src.split(',')[1];
+    const mimeMatch = src.match(/data:(image\/\w+);/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+    const prompt = `You are analyzing a photo of a 3D printed product for an Etsy listing.
+
+Examine the image carefully and extract the following. Be concise and accurate.
+Only fill fields you are confident about — use null for anything unclear.
+
+Respond ONLY with valid JSON, no markdown:
+{
+  "character_name": "The character or subject name (e.g. Mario, Master Chief, Michelangelo). null if unclear.",
+  "color_scheme": "Multi-Color or Single-Color based on visible filament colors. null if unclear.",
+  "object_type": "Short subtitle describing the object type, e.g. Pen & Pencil Holder · Desk Organizer. null if unclear.",
+  "size_estimate": "small, medium, or large based on visual proportions relative to any visible reference objects. small = under 10cm, medium = 10-20cm, large = over 20cm.",
+  "size_confidence": "high, medium, or low",
+  "character_confidence": "high, medium, or low",
+  "color_confidence": "high, medium, or low",
+  "notes": "One short sentence of any other relevant observations, or null."
+}`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 512,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || `HTTP ${res.status}`); }
+
+    const data   = await res.json();
+    const raw    = data.content[0].text.trim().replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(raw);
+
+    lastAnalysis = parsed;
+    renderAnalysisPanel(parsed);
+
+  } catch(err) {
+    showToast(`Error: ${err.message}`);
+    console.error('[analyze]', err);
+  }
+
+  btn.disabled = false;
+  icon.textContent = '🔍';
+}
+
+function renderAnalysisPanel(a) {
+  const panel = document.getElementById('analysis-panel');
+  const grid  = document.getElementById('analysis-grid');
+  grid.innerHTML = '';
+
+  // Size → packaging cost mapping
+  const pkgMap = { small: 1.50, medium: 2.50, large: 4.00 };
+  const filGMap = { small: 50, medium: 85, large: 140 };
+  const hrsMap  = { small: 2.5, medium: 4, large: 7 };
+
+  const rows = [
+    {
+      field: 'Character',
+      value: a.character_name,
+      conf: a.character_confidence,
+      empty: 'Not identified'
+    },
+    {
+      field: 'Color Scheme',
+      value: a.color_scheme,
+      conf: a.color_confidence,
+      empty: 'Not determined'
+    },
+    {
+      field: 'Object Type',
+      value: a.object_type,
+      conf: null,
+      empty: 'Not determined'
+    },
+    {
+      field: 'Size Estimate',
+      value: a.size_estimate ? a.size_estimate.charAt(0).toUpperCase() + a.size_estimate.slice(1)
+             + ` → pkg $${pkgMap[a.size_estimate]?.toFixed(2) || '—'}, ~${filGMap[a.size_estimate] || '—'}g, ~${hrsMap[a.size_estimate] || '—'}hrs` : null,
+      conf: a.size_confidence,
+      empty: 'Cannot estimate'
+    },
+    {
+      field: 'Notes',
+      value: a.notes,
+      conf: null,
+      empty: null  // hide row if empty
+    }
+  ];
+
+  rows.forEach(({ field, value, conf, empty }) => {
+    if (empty === null && !value) return; // hide empty notes row
+
+    const row = document.createElement('div');
+    row.className = 'analysis-row';
+
+    const f = document.createElement('div');
+    f.className = 'analysis-field';
+    f.textContent = field;
+    row.appendChild(f);
+
+    const v = document.createElement('div');
+    v.className = 'analysis-value' + (!value ? ' empty' : '');
+    v.textContent = value || empty;
+    row.appendChild(v);
+
+    if (conf) {
+      const c = document.createElement('div');
+      c.className = `analysis-confidence conf-${conf === 'high' ? 'high' : conf === 'medium' ? 'med' : 'low'}`;
+      c.textContent = conf === 'high' ? '●' : conf === 'medium' ? '◐' : '○';
+      row.appendChild(c);
+    }
+
+    grid.appendChild(row);
+  });
+
+  // Legend
+  const legend = document.createElement('div');
+  legend.style.cssText = 'font-size:9px;color:var(--text-faint);letter-spacing:0.1em;text-align:right;margin-top:2px;';
+  legend.innerHTML = '<span style="color:var(--green)">●</span> high &nbsp; <span style="color:var(--amber)">◐</span> medium &nbsp; <span>○</span> low confidence';
+  grid.appendChild(legend);
+
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function applyAnalysis() {
+  if (!lastAnalysis) return;
+  const a = lastAnalysis;
+  const pkgMap  = { small: 1.50, medium: 2.50, large: 4.00 };
+  const filGMap = { small: 50,   medium: 85,    large: 140  };
+  const hrsMap  = { small: 2.5,  medium: 4,     large: 7    };
+
+  // Setup tab fields
+  if (a.character_name) document.getElementById('s-char').value = a.character_name;
+  if (a.object_type)    document.getElementById('s-sub').value  = a.object_type;
+  if (a.color_scheme) {
+    const mat = document.getElementById('s-material');
+    const target = a.color_scheme === 'Multi-Color' ? 'Multi-Color PLA' : 'Single-Color PLA';
+    Array.from(mat.options).forEach(o => { if (o.value === target) mat.value = target; });
+  }
+
+  // Always set defaults
+  document.getElementById('s-filament').value = 'PLA+ Filament';
+  document.getElementById('s-layer').value    = '0.4mm Layer Height';
+
+  // Listing tab calculator fields from size
+  if (a.size_estimate) {
+    const sz = a.size_estimate.toLowerCase();
+    if (filGMap[sz]) document.getElementById('l-fil-g').value   = filGMap[sz];
+    if (hrsMap[sz])  document.getElementById('l-hours').value   = hrsMap[sz];
+    if (pkgMap[sz])  document.getElementById('l-pkg').value     = pkgMap[sz].toFixed(2);
+  }
+
+  calcPrice();
+  dismissAnalysis();
+  showToast('Fields updated ✓');
+
+  // Draw updated preview
+  if (activeIdx >= 0) drawPreview();
+}
+
+function dismissAnalysis() {
+  document.getElementById('analysis-panel').style.display = 'none';
+  lastAnalysis = null;
 }
 
 /* ══════════════════════════════════
