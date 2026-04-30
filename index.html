@@ -1235,30 +1235,61 @@ async function exportAll() {
   prog.style.display = 'block';
 
   const charName = (document.getElementById('s-char').value || 'listing').toLowerCase().replace(/\s+/g,'-');
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
+  // Render all PNGs first
+  const rendered = [];
   for (let i = 0; i < session.length; i++) {
-    prog.textContent = `Exporting ${i+1} of ${session.length}…`;
+    prog.textContent = `Rendering ${i+1} of ${session.length}…`;
     activeIdx = i;
     scale = session[i].scale; ox = session[i].ox; oy = session[i].oy;
-
     const png = await renderFullRes();
     const filename = `${charName}-${currentTheme}-${String(i+1).padStart(2,'0')}.png`;
-
-    // Download
-    const link = document.createElement('a');
-    link.download = filename;
-    link.href = png;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    await new Promise(r => setTimeout(r, 400));
+    rendered.push({ png, filename });
+    await new Promise(r => setTimeout(r, 100));
   }
 
-  prog.textContent = `✓ ${session.length} files exported`;
-  setTimeout(() => { prog.style.display = 'none'; }, 3000);
+  if (isIOS && navigator.share) {
+    // iOS: use Web Share API — lets user save to Photos via share sheet
+    prog.textContent = 'Opening share sheet…';
+    try {
+      const files = await Promise.all(rendered.map(async ({ png, filename }) => {
+        const res  = await fetch(png);
+        const blob = await res.blob();
+        return new File([blob], filename, { type: 'image/png' });
+      }));
+
+      await navigator.share({ files, title: 'Listing Images' });
+      prog.textContent = `✓ ${session.length} images shared`;
+    } catch(err) {
+      if (err.name !== 'AbortError') {
+        // Fallback: open images one by one so user can long-press save
+        prog.textContent = 'Long-press each image → Save to Photos';
+        for (const { png } of rendered) {
+          window.open(png, '_blank');
+          await new Promise(r => setTimeout(r, 600));
+        }
+      } else {
+        prog.textContent = 'Share cancelled';
+      }
+    }
+  } else {
+    // Desktop: standard download
+    for (const { png, filename } of rendered) {
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = png;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      await new Promise(r => setTimeout(r, 400));
+    }
+    prog.textContent = `✓ ${session.length} files downloaded`;
+  }
+
+  setTimeout(() => { prog.style.display = 'none'; }, 4000);
   btn.disabled = false;
-  showToast(`${session.length} images saved`);
+  showToast(`${session.length} images ready`);
 }
 
 async function renderFullRes() {
