@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Listing Tool">
+<meta name="theme-color" content="#141414">
+<title>Listing Tool v1.0</title>
+
+<!-- PWA manifest inline -->
+<script>
+  const manifest = {
+    name: "Listing Tool",
+    short_name: "Listing Tool",
+    start_url: "/index.html",
+    display: "standalone",
+    background_color: "#141414",
+    theme_color: "#141414",
+    icons: [{
+      src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%23141414'/%3E%3Ctext x='256' y='300' font-family='Georgia,serif' font-size='220' font-weight='bold' fill='%23c8a870' text-anchor='middle'%3EKC%3C/text%3E%3C/svg%3E",
+      sizes: "512x512", type: "image/svg+xml"
+    }]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+  const link = document.createElement('link');
+  link.rel = 'manifest'; link.href = URL.createObjectURL(blob);
+  document.head.appendChild(link);
+</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@300;400;500&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+:root {
+  --bg: #141414;
+  --bg2: #1e1e1e;
+  --bg3: #252525;
+  --border: #2e2e2e;
+  --border2: #3a3a3a;
+  --amber: #c8a870;
+  --amber-dim: rgba(200,168,112,0.5);
+  --amber-faint: rgba(200,168,112,0.15);
+  --text: #e8d8be;
+  --text-dim: #888;
+  --text-faint: #444;
+  --green: #7fdd7f;
+  --red: #ff7070;
+  --safe-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  overflow: hidden;
+}
+
+/* ── APP SHELL ── */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 430px;
+  margin: 0 auto;
+}
+
+/* ── HEADER ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.header-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  color: var(--amber);
+  font-weight: 700;
+}
+
+.header-version {
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tab {
+  flex: 1;
+  padding: 12px 6px;
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.tab.active {
+  color: var(--amber);
+  border-bottom-color: var(--amber);
+  background: var(--bg);
+}
+
+.tab-icon { font-size: 16px; display: block; margin-bottom: 3px; }
+
+/* ── SCROLL CONTENT ── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.panel {
+  display: none;
+  padding: 16px;
+  padding-bottom: calc(16px + var(--safe-bottom));
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel.active { display: flex; }
+
+/* ── FORM ELEMENTS ── */
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.field label {
+  font-size: 8.5px;
+  letter-spacing: 0.32em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.field input,
+.field select,
+.field textarea {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 15px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  outline: none;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.2s;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--amber);
+}
+
+.field select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+/* ── SECTION HEADERS ── */
+.section-head {
+  font-size: 8.5px;
+  letter-spacing: 0.38em;
+  color: var(--amber);
+  text-transform: uppercase;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+/* ── THEME TOGGLE ── */
+.theme-toggle {
+  display: flex;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.theme-btn {
+  flex: 1;
+  padding: 12px;
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.2s;
+}
+
+.theme-btn.active-light { background: #f4f0ea; color: #5a4228; }
+.theme-btn.active-dark  { background: #2a2010; color: var(--amber); }
+
+/* ── BUTTONS ── */
+.btn {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn:active { opacity: 0.7; }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btn-primary   { background: var(--amber); color: #1a1206; }
+.btn-secondary { background: var(--bg3); color: var(--text-dim); border: 1px solid var(--border2); }
+.btn-green     { background: #2a4a2a; color: #a0d4a0; }
+.btn-export    { background: #1e3a1e; color: var(--green); border: 1px solid #2a5a2a; }
+
+/* ── PHOTOS TAB ── */
+.upload-zone {
+  border: 2px dashed var(--border2);
+  border-radius: 12px;
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  background: var(--bg2);
+}
+
+.upload-zone:active { border-color: var(--amber); }
+.upload-zone-icon { font-size: 40px; margin-bottom: 10px; }
+.upload-zone-text { font-size: 11px; letter-spacing: 0.2em; color: var(--text-dim); text-transform: uppercase; }
+.upload-zone-sub  { font-size: 10px; color: var(--text-faint); margin-top: 6px; }
+
+/* Filmstrip */
+.filmstrip-wrap {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filmstrip-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.filmstrip-clear {
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--text-faint);
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.filmstrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.filmstrip::-webkit-scrollbar { display: none; }
+
+.thumb {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  border-radius: 8px;
+  border: 2px solid var(--border2);
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: var(--bg3);
+  transition: border-color 0.2s;
+}
+
+.thumb.active { border-color: var(--amber); }
+.thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.thumb-num {
+  position: absolute; bottom: 4px; left: 5px;
+  font-size: 9px; color: rgba(200,168,112,0.9);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+.thumb-rm {
+  position: absolute; top: 4px; right: 4px;
+  width: 20px; height: 20px;
+  background: rgba(0,0,0,0.65);
+  border: none; border-radius: 50%;
+  color: #ccc; font-size: 13px; line-height: 20px;
+  text-align: center; cursor: pointer;
+}
+
+/* Frame preview */
+.frame-preview-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--bg2);
+  border-radius: 10px;
+  overflow: hidden;
+  touch-action: none;
+}
+
+#frame-preview {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#preview-photo {
+  position: absolute;
+  transform-origin: center center;
+  display: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Frame overlays on preview */
+.preview-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ── CALCULATOR ── */
+.calc-result-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.calc-result-cell {
+  background: var(--bg2);
+  padding: 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cell-label {
+  font-size: 8px;
+  letter-spacing: 0.28em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.cell-value {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  color: var(--text);
+  line-height: 1;
+}
+
+.cell-value.green { color: var(--green); }
+
+.input-with-unit {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.unit-prefix {
+  position: absolute; left: 14px;
+  font-size: 14px; color: var(--text-faint);
+  pointer-events: none; z-index: 1;
+}
+
+.unit-suffix {
+  position: absolute; right: 14px;
+  font-size: 11px; color: var(--text-faint);
+  pointer-events: none;
+}
+
+.input-with-unit input {
+  padding-left: 28px;
+}
+.input-with-unit input.has-suffix {
+  padding-right: 40px;
+}
+.input-with-unit input.no-prefix {
+  padding-left: 14px;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+/* ── LISTING OUTPUT ── */
+.output-block {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+}
+
+.output-label {
+  font-size: 8px;
+  letter-spacing: 0.3em;
+  color: var(--amber);
+  text-transform: uppercase;
+}
+
+.copy-btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  color: var(--text-dim);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.copy-btn.copied {
+  background: #1e3a1e;
+  color: var(--green);
+  border-color: #2a5a2a;
+}
+
+.output-text {
+  padding: 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 44px;
+}
+
+.output-dim { color: var(--text-faint); font-style: italic; }
+
+.char-count {
+  padding: 4px 14px 10px;
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+/* ── API KEY ── */
+.api-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.api-status {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.api-status.ok { color: var(--green); }
+
+/* ── PRICE DISPLAY ── */
+.price-display {
+  font-family: 'Playfair Display', serif;
+  font-size: 42px;
+  color: var(--green);
+  text-align: center;
+  padding: 20px;
+  line-height: 1;
+}
+
+.price-sub {
+  text-align: center;
+  font-size: 9px;
+  color: var(--text-faint);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+/* ── SPINNER ── */
+.spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid #2a5a2a;
+  border-top-color: #a0d4a0;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed;
+  bottom: calc(80px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  padding: 10px 20px;
+  border-radius: 20px;
+  opacity: 0;
+  transition: all 0.3s;
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── EXPORT PROGRESS ── */
+.export-progress {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 8px 0;
+  display: none;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="header-title">Listing Tool</div>
+      <div class="header-version">KeyCrafted Studio · v1.0</div>
+    </div>
+    <div style="font-size:22px;">🗂️</div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('setup')">
+      <span class="tab-icon">⚙️</span>Setup
+    </div>
+    <div class="tab" onclick="switchTab('photos')">
+      <span class="tab-icon">🖼️</span>Photos
+    </div>
+    <div class="tab" onclick="switchTab('listing')">
+      <span class="tab-icon">✦</span>Listing
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- ══════ TAB 1: SETUP ══════ -->
+    <div class="panel active" id="tab-setup">
+
+      <div class="section-head">Product Info</div>
+
+      <div class="field">
+        <label>Character Name</label>
+        <input type="text" id="s-char" value="Michelangelo" placeholder="e.g. Michelangelo" />
+      </div>
+
+      <div class="two-col">
+        <div class="field">
+          <label>Series #</label>
+          <input type="text" id="s-series" value="01" maxlength="2" />
+        </div>
+        <div class="field">
+          <label>Theme</label>
+          <div class="theme-toggle">
+            <button class="theme-btn active-light" id="tbtn-light" onclick="setTheme('light')">☀ Light</button>
+            <button class="theme-btn" id="tbtn-dark" onclick="setTheme('dark')">◗ Dark</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Subtitle</label>
+        <input type="text" id="s-sub" value="Pen & Pencil Holder · Desk Organizer" />
+      </div>
+
+      <div class="section-head">Print Specs</div>
+
+      <div class="field">
+        <label>Material</label>
+        <select id="s-material">
+          <option value="Multi-Color PLA">Multi-Color PLA</option>
+          <option value="Single-Color PLA">Single-Color PLA</option>
+        </select>
+      </div>
+
+      <div class="two-col">
+        <div class="field">
+          <label>Filament Type</label>
+          <select id="s-filament">
+            <option value="PLA+ Filament">PLA+</option>
+            <option value="ABS Filament">ABS</option>
+            <option value="PETG Filament">PETG</option>
+            <option value="Carbon Fiber">Carbon Fiber</option>
+            <option value="TPU Flexible">TPU</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Layer Height</label>
+          <select id="s-layer">
+            <option value="0.2mm Layer Height">0.2mm</option>
+            <option value="0.4mm Layer Height">0.4mm</option>
+            <option value="0.6mm Layer Height">0.6mm</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="switchTab('photos')">
+        Next → Photos
+      </button>
+
+    </div>
+
+    <!-- ══════ TAB 2: PHOTOS ══════ -->
+    <div class="panel" id="tab-photos">
+
+      <!-- Upload zone -->
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+        <div class="upload-zone-icon">📂</div>
+        <div class="upload-zone-text">Pick from Gallery</div>
+        <div class="upload-zone-sub">Up to 8 photos</div>
+      </div>
+      <input type="file" id="file-input" accept="image/*" multiple style="display:none" onchange="addPhotos(this.files)" />
+
+      <!-- Filmstrip -->
+      <div class="filmstrip-wrap" id="filmstrip-wrap">
+        <div class="filmstrip-meta">
+          <span id="film-count">0 photos</span>
+          <button class="filmstrip-clear" onclick="clearSession()">Clear All</button>
+        </div>
+        <div class="filmstrip" id="filmstrip"></div>
+      </div>
+
+      <!-- Frame preview -->
+      <div class="frame-preview-wrap" id="preview-wrap" style="display:none">
+        <div id="frame-preview">
+          <canvas id="preview-canvas" style="width:100%;height:100%;display:block;"></canvas>
+        </div>
+        <div class="preview-overlay" id="preview-overlay"></div>
+        <!-- touch layer -->
+        <div id="touch-layer" style="position:absolute;inset:0;z-index:10;"
+          ontouchstart="onTouchStart(event)"
+          ontouchmove="onTouchMove(event)"
+          ontouchend="onTouchEnd(event)">
+        </div>
+      </div>
+
+      <div style="font-size:9px; color:var(--text-faint); text-align:center; letter-spacing:0.15em; text-transform:uppercase;">
+        Pinch to zoom · Drag to reposition
+      </div>
+
+      <!-- Export -->
+      <button class="btn btn-export" id="export-btn" onclick="exportAll()" disabled>
+        ↓ Export All to Gallery
+      </button>
+      <div class="export-progress" id="export-progress">Exporting 0 of 0…</div>
+
+      <button class="btn btn-secondary" onclick="switchTab('listing')" style="margin-top:4px;">
+        Next → Listing
+      </button>
+
+    </div>
+
+    <!-- ══════ TAB 3: LISTING ══════ -->
+    <div class="panel" id="tab-listing">
+
+      <!-- Cost Calculator -->
+      <div class="section-head">Cost Calculator</div>
+
+      <div class="two-col">
+        <div class="field">
+          <label>Filament Used</label>
+          <div class="input-with-unit">
+            <input type="number" class="no-prefix has-suffix" id="l-fil-g" value="85" min="0" step="1" oninput="calcPrice()" />
+            <span class="unit-suffix">g</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Price / kg</label>
+          <div class="input-with-unit">
+            <span class="unit-prefix">$</span>
+            <input type="number" id="l-fil-price" value="24" min="0" step="0.5" oninput="calcPrice()" />
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="field">
+          <label>Print Duration</label>
+          <div class="input-with-unit">
+            <input type="number" class="no-prefix has-suffix" id="l-hours" value="4" min="0" step="0.5" oninput="calcPrice()" />
+            <span class="unit-suffix">hrs</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Printer Watts</label>
+          <div class="input-with-unit">
+            <input type="number" class="no-prefix has-suffix" id="l-watts" value="200" min="0" step="10" oninput="calcPrice()" />
+            <span class="unit-suffix">W</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="field">
+          <label>Electricity / kWh</label>
+          <div class="input-with-unit">
+            <span class="unit-prefix">$</span>
+            <input type="number" id="l-kwh" value="0.13" min="0" step="0.01" oninput="calcPrice()" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Packaging</label>
+          <div class="input-with-unit">
+            <span class="unit-prefix">$</span>
+            <input type="number" id="l-pkg" value="1.50" min="0" step="0.25" oninput="calcPrice()" />
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="field">
+          <label>Shipping Materials</label>
+          <div class="input-with-unit">
+            <span class="unit-prefix">$</span>
+            <input type="number" id="l-ship" value="2.00" min="0" step="0.25" oninput="calcPrice()" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Etsy + Payment Fees</label>
+          <div class="input-with-unit">
+            <input type="number" class="no-prefix has-suffix" id="l-fees" value="9.5" min="0" step="0.5" oninput="calcPrice()" />
+            <span class="unit-suffix">%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Your Margin</label>
+        <div class="input-with-unit">
+          <input type="number" class="no-prefix has-suffix" id="l-margin" value="60" min="0" max="95" step="5" oninput="calcPrice()" />
+          <span class="unit-suffix">%</span>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="calc-result-grid">
+        <div class="calc-result-cell">
+          <div class="cell-label">Filament Cost</div>
+          <div class="cell-value" id="r-fil">$2.04</div>
+        </div>
+        <div class="calc-result-cell">
+          <div class="cell-label">Electricity</div>
+          <div class="cell-value" id="r-elec">$0.10</div>
+        </div>
+        <div class="calc-result-cell">
+          <div class="cell-label">Total Cost</div>
+          <div class="cell-value" id="r-cost">$5.64</div>
+        </div>
+        <div class="calc-result-cell">
+          <div class="cell-label">Break-even</div>
+          <div class="cell-value" id="r-break">$6.23</div>
+        </div>
+      </div>
+
+      <div class="price-display" id="r-price">$15.99</div>
+      <div class="price-sub">Recommended Price · <span id="r-margin-lbl">60%</span> margin</div>
+
+      <!-- API Key -->
+      <div class="section-head">AI Generation</div>
+
+      <div class="field">
+        <label>Anthropic API Key</label>
+        <div class="api-row">
+          <input type="password" id="l-apikey" placeholder="sk-ant-api03-…" oninput="checkKey()" style="flex:1;" />
+          <div class="api-status" id="l-api-status">—</div>
+        </div>
+      </div>
+
+      <button class="btn btn-green" id="l-gen-btn" onclick="generateListing()" disabled>
+        <span id="l-gen-icon">✦</span> Generate Listing
+      </button>
+
+      <!-- Outputs -->
+      <div id="l-outputs" style="display:none; display:flex; flex-direction:column; gap:10px;">
+
+        <div class="output-block">
+          <div class="output-header">
+            <div class="output-label">Title</div>
+            <button class="copy-btn" onclick="copyOut('l-out-title', this)">Copy</button>
+          </div>
+          <div class="output-text output-dim" id="l-out-title">—</div>
+          <div class="char-count" id="l-title-count"></div>
+        </div>
+
+        <div class="output-block">
+          <div class="output-header">
+            <div class="output-label">Description</div>
+            <button class="copy-btn" onclick="copyOut('l-out-desc', this)">Copy</button>
+          </div>
+          <div class="output-text output-dim" id="l-out-desc">—</div>
+        </div>
+
+        <div class="output-block">
+          <div class="output-header">
+            <div class="output-label">Tags <span style="color:var(--text-faint);">(13)</span></div>
+            <button class="copy-btn" onclick="copyOut('l-out-tags', this)">Copy</button>
+          </div>
+          <div class="output-text output-dim" id="l-out-tags">—</div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════
+   SERVICE WORKER
+══════════════════════════════════ */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+/* ══════════════════════════════════
+   TABS
+══════════════════════════════════ */
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const names = ['setup','photos','listing'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+/* ══════════════════════════════════
+   THEME
+══════════════════════════════════ */
+let currentTheme = 'light';
+
+function setTheme(t) {
+  currentTheme = t;
+  document.getElementById('tbtn-light').className = 'theme-btn' + (t==='light' ? ' active-light' : '');
+  document.getElementById('tbtn-dark').className  = 'theme-btn' + (t==='dark'  ? ' active-dark'  : '');
+  if (activeIdx >= 0) drawPreview();
+}
+
+/* ══════════════════════════════════
+   SESSION
+══════════════════════════════════ */
+let session   = [];
+let activeIdx = -1;
+
+// Per-photo transform state
+let scale = 1, ox = 0, oy = 0;
+
+function saveState() {
+  if (activeIdx < 0) return;
+  session[activeIdx].scale = scale;
+  session[activeIdx].ox    = ox;
+  session[activeIdx].oy    = oy;
+}
+
+function addPhotos(files) {
+  const remaining = 8 - session.length;
+  const toLoad = Array.from(files).slice(0, remaining);
+  if (!toLoad.length) { showToast('Session full (8 photos max)'); return; }
+
+  const imgRefs = [];
+  toLoad.forEach(file => {
+    const r = new FileReader();
+    r.onload = ev => {
+      const src = ev.target.result;
+      const img = new Image();
+      imgRefs.push(img);
+      img.onload = () => {
+        const s = autoFit(img.naturalWidth, img.naturalHeight);
+        session.push({ src, scale: s, ox: 0, oy: 0, w: img.naturalWidth, h: img.naturalHeight });
+        renderFilmstrip();
+        if (activeIdx < 0) activatePhoto(0);
+      };
+      img.src = src;
+    };
+    r.readAsDataURL(file);
+  });
+  document.getElementById('file-input').value = '';
+}
+
+function autoFit(iw, ih) {
+  const S = 1080;
+  if (currentTheme === 'dark') return Math.max(S/iw, S/ih);
+  return Math.min(928/iw, 784/ih);
+}
+
+function activatePhoto(idx) {
+  saveState();
+  activeIdx = idx;
+  const e = session[idx];
+  scale = e.scale; ox = e.ox; oy = e.oy;
+  document.querySelectorAll('.thumb').forEach((t,i) => t.classList.toggle('active', i===idx));
+  drawPreview();
+}
+
+function removePhoto(idx) {
+  session.splice(idx, 1);
+  if (session.length === 0) {
+    activeIdx = -1;
+    document.getElementById('preview-wrap').style.display = 'none';
+    document.getElementById('export-btn').disabled = true;
+  } else {
+    activeIdx = Math.min(activeIdx, session.length - 1);
+    activatePhoto(activeIdx);
+  }
+  renderFilmstrip();
+}
+
+function clearSession() {
+  session = []; activeIdx = -1;
+  document.getElementById('preview-wrap').style.display = 'none';
+  document.getElementById('export-btn').disabled = true;
+  renderFilmstrip();
+}
+
+function renderFilmstrip() {
+  const strip = document.getElementById('filmstrip');
+  const wrap  = document.getElementById('filmstrip-wrap');
+  document.getElementById('film-count').textContent = session.length + ' photo' + (session.length !== 1 ? 's' : '');
+  strip.innerHTML = '';
+
+  session.forEach((e, i) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb' + (i === activeIdx ? ' active' : '');
+    thumb.onclick = () => activatePhoto(i);
+
+    const img = document.createElement('img');
+    img.src = e.src;
+    thumb.appendChild(img);
+
+    const num = document.createElement('div');
+    num.className = 'thumb-num';
+    num.textContent = String(i+1).padStart(2,'0');
+    thumb.appendChild(num);
+
+    const rm = document.createElement('button');
+    rm.className = 'thumb-rm';
+    rm.textContent = '×';
+    rm.onclick = ev => { ev.stopPropagation(); removePhoto(i); };
+    thumb.appendChild(rm);
+
+    strip.appendChild(thumb);
+  });
+
+  if (session.length < 8) {
+    const add = document.createElement('div');
+    add.className = 'thumb';
+    add.style.cssText = 'border-style:dashed; display:flex; align-items:center; justify-content:center; font-size:24px; color:var(--text-faint);';
+    add.textContent = '+';
+    add.onclick = () => document.getElementById('file-input').click();
+    strip.appendChild(add);
+  }
+
+  wrap.style.display = session.length > 0 ? 'flex' : 'none';
+  document.getElementById('preview-wrap').style.display = session.length > 0 ? 'block' : 'none';
+  document.getElementById('export-btn').disabled = session.length === 0;
+}
+
+/* ══════════════════════════════════
+   TOUCH GESTURES
+══════════════════════════════════ */
+let touches = {};
+let lastDist = 0;
+let lastMidX = 0, lastMidY = 0;
+
+function onTouchStart(e) {
+  e.preventDefault();
+  if (activeIdx < 0) return;
+  touches = {};
+  Array.from(e.touches).forEach(t => { touches[t.identifier] = {x: t.clientX, y: t.clientY}; });
+  if (e.touches.length === 2) {
+    lastDist = getTouchDist(e);
+    const mid = getTouchMid(e);
+    lastMidX = mid.x; lastMidY = mid.y;
+  }
+}
+
+function onTouchMove(e) {
+  e.preventDefault();
+  if (activeIdx < 0) return;
+
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    const prev = touches[t.identifier];
+    if (prev) {
+      ox += t.clientX - prev.x;
+      oy += t.clientY - prev.y;
+    }
+    touches[t.identifier] = {x: t.clientX, y: t.clientY};
+    drawPreview();
+  } else if (e.touches.length === 2) {
+    const dist = getTouchDist(e);
+    const mid  = getTouchMid(e);
+    const ratio = dist / (lastDist || dist);
+    scale = Math.max(0.3, Math.min(6, scale * ratio));
+    ox += mid.x - lastMidX;
+    oy += mid.y - lastMidY;
+    lastDist = dist; lastMidX = mid.x; lastMidY = mid.y;
+    Array.from(e.touches).forEach(t => { touches[t.identifier] = {x:t.clientX,y:t.clientY}; });
+    drawPreview();
+  }
+}
+
+function onTouchEnd(e) {
+  saveState();
+  Array.from(e.changedTouches).forEach(t => delete touches[t.identifier]);
+}
+
+function getTouchDist(e) {
+  const a = e.touches[0], b = e.touches[1];
+  return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+}
+
+function getTouchMid(e) {
+  const a = e.touches[0], b = e.touches[1];
+  return { x: (a.clientX + b.clientX)/2, y: (a.clientY + b.clientY)/2 };
+}
+
+/* ══════════════════════════════════
+   CANVAS PREVIEW
+══════════════════════════════════ */
+function drawPreview() {
+  const canvas  = document.getElementById('preview-canvas');
+  const wrap    = document.getElementById('preview-wrap');
+  const size    = wrap.offsetWidth;
+  canvas.width  = size;
+  canvas.height = size;
+  const ctx     = canvas.getContext('2d');
+  const S       = size;
+  const isDark  = currentTheme === 'dark';
+  const FULL    = 1080; // logical frame size
+  const ratio   = S / FULL;
+
+  // Background
+  ctx.fillStyle = isDark ? '#1e1a14' : '#f4f0ea';
+  ctx.fillRect(0, 0, S, S);
+
+  // Grid (light)
+  if (!isDark) {
+    ctx.strokeStyle = 'rgba(160,130,90,0.13)'; ctx.lineWidth = 1;
+    const gs = 36 * ratio;
+    for (let x=0; x<=S; x+=gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,S); ctx.stroke(); }
+    for (let y=0; y<=S; y+=gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(S,y); ctx.stroke(); }
+  }
+
+  // Photo
+  if (activeIdx >= 0) {
+    const entry = session[activeIdx];
+    const img   = new Image();
+    img.onload = () => {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0,0,S,S); ctx.clip();
+      const iw = img.naturalWidth * scale * ratio;
+      const ih = img.naturalHeight * scale * ratio;
+      let drawX, drawY;
+      if (isDark) {
+        drawX = S/2 - iw/2 + ox * ratio;
+        drawY = S/2 - ih/2 + oy * ratio;
+      } else {
+        const aX = 76*ratio, aY = 108*ratio;
+        const aW = (FULL-152)*ratio, aH = (FULL-296)*ratio;
+        drawX = aX + aW/2 - iw/2 + ox * ratio;
+        drawY = aY + aH/2 - ih/2 + oy * ratio;
+      }
+      ctx.drawImage(img, drawX, drawY, iw, ih);
+      ctx.restore();
+      drawFrameOverlay(ctx, S, isDark, ratio);
+    };
+    img.src = entry.src;
+  } else {
+    drawFrameOverlay(ctx, S, isDark, ratio);
+  }
+}
+
+function drawFrameOverlay(ctx, S, isDark, ratio) {
+  const FULL = 1080;
+
+  // Vignette
+  if (isDark) {
+    const gB = ctx.createLinearGradient(0,S,0,0);
+    gB.addColorStop(0,'rgba(10,7,3,0.94)'); gB.addColorStop(0.26,'rgba(10,7,3,0.58)'); gB.addColorStop(0.5,'rgba(10,7,3,0)');
+    ctx.fillStyle=gB; ctx.fillRect(0,0,S,S);
+    const gT = ctx.createLinearGradient(0,0,0,S);
+    gT.addColorStop(0,'rgba(10,7,3,0.52)'); gT.addColorStop(0.2,'rgba(10,7,3,0)');
+    ctx.fillStyle=gT; ctx.fillRect(0,0,S,S);
+  } else {
+    const gR = ctx.createRadialGradient(S/2,S/2,S*0.54,S/2,S/2,S*0.75);
+    gR.addColorStop(0,'rgba(60,45,28,0)'); gR.addColorStop(1,'rgba(60,45,28,0.16)');
+    ctx.fillStyle=gR; ctx.fillRect(0,0,S,S);
+  }
+
+  // Border
+  ctx.strokeStyle = isDark?'rgba(200,170,110,0.22)':'rgba(100,78,50,0.32)';
+  ctx.lineWidth = isDark ? 1 : 1.5;
+  const b = 20*ratio;
+  ctx.strokeRect(b, b, S-2*b, S-2*b);
+
+  // Corners
+  function corner(cx,cy,fx,fy) {
+    ctx.save(); ctx.translate(cx,cy); ctx.scale(fx,fy);
+    ctx.strokeStyle=isDark?'rgba(200,170,110,0.62)':'rgba(110,82,48,0.58)';
+    ctx.lineWidth=1.5*ratio;
+    ctx.beginPath(); ctx.moveTo(4*ratio,4*ratio); ctx.lineTo(4*ratio,26*ratio);
+    ctx.moveTo(4*ratio,4*ratio); ctx.lineTo(26*ratio,4*ratio); ctx.stroke();
+    ctx.fillStyle=isDark?'rgba(200,170,110,0.48)':'rgba(110,82,48,0.48)';
+    ctx.beginPath(); ctx.arc(4*ratio,4*ratio,2*ratio,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  const co = 24*ratio;
+  corner(co,co,1,1); corner(S-co,co,-1,1); corner(co,S-co,1,-1); corner(S-co,S-co,-1,-1);
+
+  // Bottom text
+  const pY = (FULL-188)*ratio;
+  const charName = document.getElementById('s-char').value || 'Character';
+
+  // Panel divider
+  const g = ctx.createLinearGradient(52*ratio,0,(FULL-52)*ratio,0);
+  g.addColorStop(0,'transparent');
+  g.addColorStop(0.12, isDark?'rgba(200,170,110,0.38)':'rgba(100,75,45,0.35)');
+  g.addColorStop(0.88, isDark?'rgba(200,170,110,0.38)':'rgba(100,75,45,0.35)');
+  g.addColorStop(1,'transparent');
+  ctx.strokeStyle=g; ctx.lineWidth=0.5; ctx.beginPath();
+  ctx.moveTo(52*ratio,pY); ctx.lineTo((FULL-52)*ratio,pY); ctx.stroke();
+
+  // Character label
+  ctx.font=`400 ${8*ratio}px "DM Mono",monospace`;
+  ctx.fillStyle=isDark?'rgba(200,170,110,0.52)':'rgba(100,75,45,0.52)';
+  ctx.fillText('CHARACTER', 52*ratio, pY+28*ratio);
+
+  // Character name
+  ctx.font=`700 ${50*ratio}px "Playfair Display",serif`;
+  ctx.fillStyle=isDark?'#f0e4cc':'#2e2416';
+  ctx.fillText(charName, 52*ratio, pY+74*ratio);
+
+  // Store name top
+  ctx.font=`400 ${9*ratio}px "DM Mono",monospace`;
+  ctx.fillStyle=isDark?'rgba(220,195,150,0.72)':'rgba(80,60,35,0.65)';
+  ctx.fillText('KEYCRAFTED STUDIO', 56*ratio, 57*ratio);
+}
+
+/* ══════════════════════════════════
+   EXPORT ALL
+══════════════════════════════════ */
+async function exportAll() {
+  if (session.length === 0) return;
+  saveState();
+
+  const btn  = document.getElementById('export-btn');
+  const prog = document.getElementById('export-progress');
+  btn.disabled = true;
+  prog.style.display = 'block';
+
+  const charName = (document.getElementById('s-char').value || 'listing').toLowerCase().replace(/\s+/g,'-');
+
+  for (let i = 0; i < session.length; i++) {
+    prog.textContent = `Exporting ${i+1} of ${session.length}…`;
+    activeIdx = i;
+    scale = session[i].scale; ox = session[i].ox; oy = session[i].oy;
+
+    const png = await renderFullRes();
+    const filename = `${charName}-${currentTheme}-${String(i+1).padStart(2,'0')}.png`;
+
+    // Download
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = png;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    await new Promise(r => setTimeout(r, 400));
+  }
+
+  prog.textContent = `✓ ${session.length} files exported`;
+  setTimeout(() => { prog.style.display = 'none'; }, 3000);
+  btn.disabled = false;
+  showToast(`${session.length} images saved`);
+}
+
+async function renderFullRes() {
+  const S = 1080;
+  const isDark = currentTheme === 'dark';
+  const canvas = document.createElement('canvas');
+  canvas.width = S; canvas.height = S;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = isDark ? '#1e1a14' : '#f4f0ea';
+  ctx.fillRect(0,0,S,S);
+
+  if (!isDark) {
+    ctx.strokeStyle='rgba(160,130,90,0.13)'; ctx.lineWidth=1;
+    for(let x=0;x<=S;x+=36){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,S);ctx.stroke();}
+    for(let y=0;y<=S;y+=36){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(S,y);ctx.stroke();}
+  }
+
+  // Draw photo at full res
+  const entry = session[activeIdx];
+  await new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0,0,S,S); ctx.clip();
+      const iw = img.naturalWidth * scale;
+      const ih = img.naturalHeight * scale;
+      let dx, dy;
+      if (isDark) {
+        dx = S/2 - iw/2 + ox; dy = S/2 - ih/2 + oy;
+      } else {
+        dx = 76 + (S-152)/2 - iw/2 + ox;
+        dy = 108 + (S-296)/2 - ih/2 + oy;
+      }
+      ctx.drawImage(img, dx, dy, iw, ih);
+      ctx.restore();
+      resolve();
+    };
+    img.src = entry.src;
+  });
+
+  drawFrameOverlayFull(ctx, S, isDark);
+  return canvas.toDataURL('image/png');
+}
+
+function drawFrameOverlayFull(ctx, S, isDark) {
+  // Vignette
+  if (isDark) {
+    const gB=ctx.createLinearGradient(0,S,0,0);
+    gB.addColorStop(0,'rgba(10,7,3,0.94)');gB.addColorStop(0.26,'rgba(10,7,3,0.58)');gB.addColorStop(0.5,'rgba(10,7,3,0)');
+    ctx.fillStyle=gB;ctx.fillRect(0,0,S,S);
+    const gT=ctx.createLinearGradient(0,0,0,S);
+    gT.addColorStop(0,'rgba(10,7,3,0.52)');gT.addColorStop(0.2,'rgba(10,7,3,0)');
+    ctx.fillStyle=gT;ctx.fillRect(0,0,S,S);
+    const gR=ctx.createRadialGradient(S/2,S/2,S*0.42,S/2,S/2,S*0.72);
+    gR.addColorStop(0,'rgba(6,4,1,0)');gR.addColorStop(1,'rgba(6,4,1,0.4)');
+    ctx.fillStyle=gR;ctx.fillRect(0,0,S,S);
+  } else {
+    const gR=ctx.createRadialGradient(S/2,S/2,S*0.54,S/2,S/2,S*0.75);
+    gR.addColorStop(0,'rgba(60,45,28,0)');gR.addColorStop(1,'rgba(60,45,28,0.16)');
+    ctx.fillStyle=gR;ctx.fillRect(0,0,S,S);
+  }
+
+  function gradLine(y,x1,x2,c){
+    const g=ctx.createLinearGradient(x1,y,x2,y);
+    g.addColorStop(0,'transparent');g.addColorStop(0.12,c);g.addColorStop(0.88,c);g.addColorStop(1,'transparent');
+    ctx.strokeStyle=g;ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(x1,y);ctx.lineTo(x2,y);ctx.stroke();
+  }
+
+  // Border
+  ctx.strokeStyle=isDark?'rgba(200,170,110,0.22)':'rgba(100,78,50,0.32)';
+  ctx.lineWidth=isDark?1:1.5; ctx.strokeRect(20.5,20.5,S-41,S-41);
+  if(!isDark){ctx.strokeStyle='rgba(100,78,50,0.18)';ctx.lineWidth=0.5;ctx.strokeRect(28.5,28.5,S-57,S-57);}
+
+  // Corners
+  function corner(cx,cy,fx,fy){
+    ctx.save();ctx.translate(cx,cy);ctx.scale(fx,fy);
+    ctx.strokeStyle=isDark?'rgba(200,170,110,0.62)':'rgba(110,82,48,0.58)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(4,4);ctx.lineTo(4,26);ctx.moveTo(4,4);ctx.lineTo(26,4);ctx.stroke();
+    ctx.strokeStyle=isDark?'rgba(200,170,110,0.2)':'rgba(110,82,48,0.22)';ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(4,4);ctx.lineTo(4,40);ctx.moveTo(4,4);ctx.lineTo(40,4);ctx.stroke();
+    ctx.fillStyle=isDark?'rgba(200,170,110,0.48)':'rgba(110,82,48,0.48)';
+    ctx.beginPath();ctx.arc(4,4,2,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+  corner(24,24,1,1);corner(S-24,24,-1,1);corner(24,S-24,1,-1);corner(S-24,S-24,-1,-1);
+
+  // Top row
+  ctx.font='400 9px "DM Mono",monospace';
+  ctx.fillStyle=isDark?'rgba(220,195,150,0.72)':'rgba(80,60,35,0.65)';
+  ctx.fillText('KEYCRAFTED STUDIO', 56, 57);
+
+  const sn = document.getElementById('s-series').value || '01';
+  ctx.font='700 52px "Playfair Display",serif';
+  ctx.fillStyle=isDark?'rgba(200,170,110,0.1)':'rgba(100,75,45,0.1)';
+  const snW = ctx.measureText(sn).width;
+  ctx.fillText(sn, S-56-snW, 90);
+
+  ctx.font='400 7.5px "DM Mono",monospace';
+  ctx.fillStyle=isDark?'rgba(200,170,110,0.42)':'rgba(100,75,45,0.42)';
+  const sl='PEN HOLDER SERIES', slW=ctx.measureText(sl).width;
+  ctx.fillText(sl, S-56-slW, 102);
+
+  ctx.font='400 8.5px "DM Mono",monospace';
+  ctx.fillStyle=isDark?'rgba(220,195,150,0.65)':'rgba(90,68,40,0.65)';
+  const bt='DESK COMPANION COLLECTION', btW=ctx.measureText(bt).width;
+  ctx.fillText(bt, S/2-btW/2, 57);
+  const blc=isDark?'rgba(200,170,110,0.45)':'rgba(110,82,48,0.4)';
+  gradLine(63,S/2-60,S/2+60,blc); gradLine(49,S/2-60,S/2+60,blc);
+  ctx.font='italic 300 11px "Cormorant Garamond",serif';
+  ctx.fillStyle=isDark?'rgba(200,170,120,0.5)':'rgba(110,82,48,0.5)';
+  const bs='3D Printed · Hand Finished', bsW=ctx.measureText(bs).width;
+  ctx.fillText(bs, S/2-bsW/2, 76);
+
+  // Side labels
+  ctx.save();ctx.font='400 7.5px "DM Mono",monospace';
+  ctx.fillStyle=isDark?'rgba(200,170,110,0.28)':'rgba(100,75,45,0.28)';
+  ctx.translate(14,S/2);ctx.rotate(-Math.PI/2);ctx.fillText('PEN HOLDER · OFFICE SERIES',-60,0);ctx.restore();
+  ctx.save();ctx.translate(S-14,S/2);ctx.rotate(Math.PI/2);
+  ctx.font='400 7.5px "DM Mono",monospace';
+  ctx.fillStyle=isDark?'rgba(200,170,110,0.28)':'rgba(100,75,45,0.28)';
+  ctx.fillText('FDM · PLA+ · MULTI-COLOR',-55,0);ctx.restore();
+
+  // Bottom panel
+  const pY=S-188;
+  gradLine(pY,52,S-52,isDark?'rgba(200,170,110,0.38)':'rgba(100,75,45,0.35)');
+
+  ctx.font='400 8px "DM Mono",monospace';
+  ctx.fillStyle=isDark?'rgba(200,170,110,0.52)':'rgba(100,75,45,0.52)';
+  ctx.fillText('CHARACTER',52,pY+28);
+
+  const charName = document.getElementById('s-char').value||'Character';
+  ctx.font='700 50px "Playfair Display",serif';
+  ctx.fillStyle=isDark?'#f0e4cc':'#2e2416';
+  if(isDark){ctx.shadowColor='rgba(0,0,0,0.7)';ctx.shadowBlur=24;}
+  ctx.fillText(charName,52,pY+74);
+  ctx.shadowBlur=0;
+
+  const sub = document.getElementById('s-sub').value||'Pen Holder';
+  ctx.font='italic 300 15px "Cormorant Garamond",serif';
+  ctx.fillStyle=isDark?'rgba(210,185,140,0.65)':'rgba(90,65,35,0.6)';
+  ctx.fillText(sub,52,pY+96);
+
+  // Specs
+  const specs=[
+    document.getElementById('s-filament').value,
+    document.getElementById('s-layer').value,
+    'Fits Standard Pens'
+  ];
+  specs.forEach((s,i)=>{
+    const sy=pY+30+i*22;
+    ctx.font='400 9px "DM Mono",monospace';
+    const sw=ctx.measureText(s.toUpperCase()).width;
+    ctx.fillStyle=isDark?'rgba(200,170,110,0.52)':'rgba(100,75,45,0.5)';
+    ctx.beginPath();ctx.arc(S-56-sw-14,sy-3,2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=isDark?'rgba(210,185,140,0.68)':'rgba(80,58,32,0.68)';
+    ctx.fillText(s.toUpperCase(),S-56-sw,sy);
+  });
+
+  // Material badge
+  const mat=document.getElementById('s-material').value.toUpperCase();
+  ctx.font='400 8px "DM Mono",monospace';
+  const mW=ctx.measureText(mat).width+28, mX=S-52-mW, mY2=pY+100;
+  if(isDark){ctx.fillStyle='rgba(200,170,110,0.12)';ctx.fillRect(mX,mY2,mW,22);
+    ctx.strokeStyle='rgba(200,170,110,0.38)';ctx.lineWidth=0.5;ctx.strokeRect(mX,mY2,mW,22);
+    ctx.fillStyle='rgba(230,205,160,0.88)';
+  } else {ctx.fillStyle='#2e2416';ctx.fillRect(mX,mY2,mW,22);ctx.fillStyle='#e8d8be';}
+  ctx.fillText(mat,mX+14,mY2+14);
+
+  // Accent dots
+  const dY=S-198, dc=[3,3,5,3,3];
+  let dX=S/2-(dc.reduce((a,b)=>a+b,0)+20)/2;
+  dc.forEach((r,i)=>{
+    ctx.beginPath();ctx.arc(dX+r/2,dY,r/2,0,Math.PI*2);
+    ctx.fillStyle=i===2?(isDark?'rgba(200,170,110,0.42)':'rgba(100,75,45,0.42)'):(isDark?'rgba(200,170,110,0.28)':'rgba(100,75,45,0.28)');
+    ctx.fill();dX+=r+5;
+  });
+
+  // Ruler
+  const rY=S-26, tickW=(S-104)/48;
+  for(let i=0;i<=48;i++){
+    const tx=52+i*tickW;
+    ctx.strokeStyle=i%5===0?(isDark?'rgba(200,170,110,0.32)':'rgba(100,75,45,0.32)'):(isDark?'rgba(200,170,110,0.15)':'rgba(100,75,45,0.15)');
+    ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(tx,rY);ctx.lineTo(tx,rY+7);ctx.stroke();
+  }
+}
+
+/* ══════════════════════════════════
+   COST CALCULATOR
+══════════════════════════════════ */
+function calcPrice() {
+  const g    = parseFloat(document.getElementById('l-fil-g').value)||0;
+  const fpkg = parseFloat(document.getElementById('l-fil-price').value)||0;
+  const hrs  = parseFloat(document.getElementById('l-hours').value)||0;
+  const W    = parseFloat(document.getElementById('l-watts').value)||0;
+  const kwh  = parseFloat(document.getElementById('l-kwh').value)||0;
+  const pkg  = parseFloat(document.getElementById('l-pkg').value)||0;
+  const ship = parseFloat(document.getElementById('l-ship').value)||0;
+  const fees = parseFloat(document.getElementById('l-fees').value)||0;
+  const marg = parseFloat(document.getElementById('l-margin').value)||0;
+
+  const filCost  = (g/1000)*fpkg;
+  const elecCost = (W/1000)*hrs*kwh;
+  const base     = filCost + elecCost + pkg + ship;
+  const breakEv  = base / (1 - fees/100);
+  const raw      = base / (1 - marg/100 - fees/100);
+  const rec      = Math.ceil(raw) - 0.01;
+
+  document.getElementById('r-fil').textContent   = '$'+filCost.toFixed(2);
+  document.getElementById('r-elec').textContent  = '$'+elecCost.toFixed(2);
+  document.getElementById('r-cost').textContent  = '$'+base.toFixed(2);
+  document.getElementById('r-break').textContent = '$'+breakEv.toFixed(2);
+  document.getElementById('r-price').textContent = '$'+rec.toFixed(2);
+  document.getElementById('r-margin-lbl').textContent = marg+'%';
+}
+calcPrice();
+
+/* ══════════════════════════════════
+   API KEY
+══════════════════════════════════ */
+function checkKey() {
+  const k   = document.getElementById('l-apikey').value.trim();
+  const st  = document.getElementById('l-api-status');
+  const btn = document.getElementById('l-gen-btn');
+  const ok  = k.startsWith('sk-ant-') && k.length > 20;
+  st.textContent = ok ? '✓ Set' : '—';
+  st.className   = 'api-status' + (ok ? ' ok' : '');
+  btn.disabled   = !ok;
+}
+
+/* ══════════════════════════════════
+   GENERATE LISTING
+══════════════════════════════════ */
+async function generateListing() {
+  const btn    = document.getElementById('l-gen-btn');
+  const icon   = document.getElementById('l-gen-icon');
+  const apiKey = document.getElementById('l-apikey').value.trim();
+
+  const character = document.getElementById('s-char').value||'Character';
+  const subtitle  = document.getElementById('s-sub').value||'Pen Holder';
+  const material  = document.getElementById('s-material').value||'PLA';
+  const filament  = document.getElementById('s-filament').value||'PLA+';
+  const layer     = document.getElementById('s-layer').value||'0.2mm';
+  const price     = document.getElementById('r-price').textContent||'$19.99';
+  const hours     = document.getElementById('l-hours').value||'4';
+  const filG      = document.getElementById('l-fil-g').value||'80';
+
+  btn.disabled = true;
+  icon.innerHTML = '<span class="spinner"></span>';
+
+  document.getElementById('l-outputs').style.display = 'flex';
+  document.getElementById('l-out-title').textContent = 'Generating…';
+  document.getElementById('l-out-desc').textContent  = 'Generating…';
+  document.getElementById('l-out-tags').textContent  = 'Generating…';
+
+  const prompt = `You are writing an Etsy product listing for a 3D printed pen holder from "KeyCrafted Studio".
+
+Product:
+- Character: ${character}
+- Type: ${subtitle}
+- Material: ${material}
+- Filament: ${filament}
+- Layer height: ${layer}
+- Print time: ~${hours} hours
+- Filament used: ~${filG}g
+- Price: ${price}
+- Ships from: United States
+- Audience: US and Canada
+
+Tone: friendly, conversational, warm — like a maker talking to a fan.
+
+Respond ONLY with valid JSON, no markdown, no explanation:
+{
+  "title": "Etsy title max 140 chars, SEO optimized",
+  "description": "3-4 paragraph friendly description covering: what it is and who it's for, craftsmanship and materials, practical details (fits standard pens/pencils, sturdy base), warm closing with care instructions (wipe clean, avoid direct sunlight)",
+  "tags": "exactly 13 comma-separated Etsy tags, SEO optimized"
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||`HTTP ${res.status}`); }
+
+    const data   = await res.json();
+    const raw    = data.content[0].text.trim().replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(raw);
+
+    const titleEl = document.getElementById('l-out-title');
+    titleEl.textContent = parsed.title||'—';
+    titleEl.classList.remove('output-dim');
+    document.getElementById('l-title-count').textContent = `${(parsed.title||'').length} / 140`;
+
+    const descEl = document.getElementById('l-out-desc');
+    descEl.textContent = parsed.description||'—';
+    descEl.classList.remove('output-dim');
+
+    const tagsEl = document.getElementById('l-out-tags');
+    tagsEl.textContent = parsed.tags||'—';
+    tagsEl.classList.remove('output-dim');
+
+    showToast('Listing generated ✓');
+
+  } catch(err) {
+    document.getElementById('l-out-title').textContent = `Error: ${err.message}`;
+    document.getElementById('l-out-desc').textContent  = 'Check your API key and try again.';
+    document.getElementById('l-out-tags').textContent  = '—';
+  }
+
+  btn.disabled = false;
+  icon.textContent = '✦';
+  checkKey();
+}
+
+/* ══════════════════════════════════
+   COPY
+══════════════════════════════════ */
+function copyOut(id, btn) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ══════════════════════════════════
+   TOAST
+══════════════════════════════════ */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
