@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Listing Tool">
 <meta name="theme-color" content="#141414">
-<title>Listing Tool v1.1</title>
+<title>Listing Tool v1.2</title>
 
 <!-- PWA manifest inline -->
 <script>
@@ -595,7 +595,7 @@ input[type=number]::-webkit-inner-spin-button {
   <div class="header">
     <div>
       <div class="header-title">Listing Tool</div>
-      <div class="header-version">KeyCrafted Studio · v1.1</div>
+      <div class="header-version">KeyCrafted Studio · v1.2</div>
     </div>
     <div style="font-size:22px;">🗂️</div>
   </div>
@@ -1249,42 +1249,30 @@ async function exportAll() {
     await new Promise(r => setTimeout(r, 100));
   }
 
-  if (isIOS && navigator.share) {
-    // iOS: use Web Share API — lets user save to Photos via share sheet
-    prog.textContent = 'Opening share sheet…';
+  if (isIOS) {
+    prog.textContent = 'Preparing images…';
     try {
+      // Convert all data URLs to Blobs/Files
       const files = await Promise.all(rendered.map(async ({ png, filename }) => {
         const res  = await fetch(png);
         const blob = await res.blob();
         return new File([blob], filename, { type: 'image/png' });
       }));
 
-      // Check if file sharing is supported before trying
       if (navigator.canShare && navigator.canShare({ files })) {
-        await navigator.share({ files, title: 'Listing Images' });
-        prog.textContent = `✓ Shared — save images to Photos from share sheet`;
+        // Must be called directly — no await before this point after user tap
+        prog.textContent = 'Opening share sheet…';
+        navigator.share({ files, title: charName + ' listing images' })
+          .then(() => { prog.textContent = '✓ Save images to Photos from share sheet'; })
+          .catch(err => {
+            if (err.name !== 'AbortError') fallbackOpenImages(rendered, prog);
+            else prog.textContent = 'Share cancelled';
+          });
       } else {
-        // File sharing not supported — open each image so user can long-press save
-        prog.textContent = 'Long-press each image → Save to Photos';
-        for (const { png, filename } of rendered) {
-          const w = window.open('', '_blank');
-          if (w) {
-            w.document.write(`<html><body style="margin:0;background:#000">
-              <p style="color:#fff;font-family:sans-serif;padding:10px;font-size:13px">
-                Long-press image → Save to Photos
-              </p>
-              <img src="${png}" style="width:100%;display:block" />
-            </body></html>`);
-          }
-          await new Promise(r => setTimeout(r, 800));
-        }
+        fallbackOpenImages(rendered, prog);
       }
     } catch(err) {
-      if (err.name !== 'AbortError') {
-        prog.textContent = `Error: ${err.message}`;
-      } else {
-        prog.textContent = 'Share cancelled';
-      }
+      prog.textContent = `Error: ${err.message}`;
     }
   } else {
     // Desktop: standard download
@@ -1488,6 +1476,34 @@ function drawFrameOverlayFull(ctx, S, isDark) {
     ctx.strokeStyle=i%5===0?(isDark?'rgba(200,170,110,0.32)':'rgba(100,75,45,0.32)'):(isDark?'rgba(200,170,110,0.15)':'rgba(100,75,45,0.15)');
     ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(tx,rY);ctx.lineTo(tx,rY+7);ctx.stroke();
   }
+}
+
+function fallbackOpenImages(rendered, prog) {
+  // Last resort: display images in page so user can long-press → Save to Photos
+  prog.textContent = 'Long-press each image → Save to Photos';
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;inset:0;background:#000;z-index:999;overflow-y:auto;padding:16px;';
+
+  const close = document.createElement('button');
+  close.textContent = '✕ Close';
+  close.style.cssText = 'display:block;width:100%;padding:12px;background:#333;color:#fff;border:none;font-size:14px;border-radius:8px;margin-bottom:12px;';
+  close.onclick = () => document.body.removeChild(container);
+  container.appendChild(close);
+
+  const note = document.createElement('p');
+  note.textContent = 'Long-press each image → Save to Photos';
+  note.style.cssText = 'color:#888;font-size:12px;text-align:center;margin-bottom:12px;font-family:sans-serif;';
+  container.appendChild(note);
+
+  rendered.forEach(({ png, filename }) => {
+    const img = document.createElement('img');
+    img.src = png;
+    img.style.cssText = 'width:100%;display:block;margin-bottom:10px;border-radius:4px;';
+    img.alt = filename;
+    container.appendChild(img);
+  });
+
+  document.body.appendChild(container);
 }
 
 /* ══════════════════════════════════
