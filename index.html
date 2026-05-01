@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Listing Tool">
 <meta name="theme-color" content="#141414">
-<title>Listing Tool v1.4</title>
+<title>Listing Tool v1.5</title>
 
 <!-- PWA manifest inline -->
 <script>
@@ -593,7 +593,26 @@ input[type=number]::-webkit-inner-spin-button {
     font-family: 'DM Mono', monospace;
   }
 
-  .analysis-value.empty { color: var(--text-faint); font-style: italic; }
+  .analysis-value { color: var(--text-faint); font-style: italic; }
+
+  .analysis-row input[type=text],
+  .analysis-row select {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    width: 100%;
+    outline: none;
+    padding: 10px 12px;
+    -webkit-appearance: none;
+  }
+
+  .analysis-row input[type=text]:focus,
+  .analysis-row select:focus {
+    border-bottom-color: var(--amber);
+  }
 
   .analysis-confidence {
     font-size: 11px;
@@ -648,7 +667,7 @@ input[type=number]::-webkit-inner-spin-button {
   <div class="header">
     <div>
       <div class="header-title">Listing Tool</div>
-      <div class="header-version">KeyCrafted Studio · v1.4</div>
+      <div class="header-version">KeyCrafted Studio · v1.5</div>
     </div>
     <div style="font-size:22px;">🗂️</div>
   </div>
@@ -1674,48 +1693,20 @@ function renderAnalysisPanel(a) {
   const grid  = document.getElementById('analysis-grid');
   grid.innerHTML = '';
 
-  // Size → packaging cost mapping
-  const pkgMap = { small: 1.50, medium: 2.50, large: 4.00 };
-  const filGMap = { small: 50, medium: 85, large: 140 };
-  const hrsMap  = { small: 2.5, medium: 4, large: 7 };
+  const pkgMap  = { small: 1.50, medium: 2.50, large: 4.00 };
+  const filGMap = { small: 50,   medium: 85,    large: 140  };
+  const hrsMap  = { small: 2.5,  medium: 4,     large: 7    };
 
   const rows = [
-    {
-      field: 'Character',
-      value: a.character_name,
-      conf: a.character_confidence,
-      empty: 'Not identified'
+    { key: 'character_name', field: 'Character',    value: a.character_name, conf: a.character_confidence, empty: 'Not identified',  editable: true  },
+    { key: 'color_scheme',   field: 'Color Scheme', value: a.color_scheme,   conf: a.color_confidence,     empty: 'Not determined',  editable: false, options: ['Multi-Color','Single-Color'] },
+    { key: 'object_type',    field: 'Object Type',  value: a.object_type,    conf: null,                   empty: 'Not determined',  editable: true  },
+    { key: 'size_estimate',  field: 'Size',         value: a.size_estimate,  conf: a.size_confidence,      empty: 'Cannot estimate', editable: false, options: ['small','medium','large'],
+      display: v => v ? v.charAt(0).toUpperCase()+v.slice(1) + ` → pkg $${pkgMap[v]?.toFixed(2)||'—'}, ~${filGMap[v]||'—'}g, ~${hrsMap[v]||'—'}hrs` : null
     },
-    {
-      field: 'Color Scheme',
-      value: a.color_scheme,
-      conf: a.color_confidence,
-      empty: 'Not determined'
-    },
-    {
-      field: 'Object Type',
-      value: a.object_type,
-      conf: null,
-      empty: 'Not determined'
-    },
-    {
-      field: 'Size Estimate',
-      value: a.size_estimate ? a.size_estimate.charAt(0).toUpperCase() + a.size_estimate.slice(1)
-             + ` → pkg $${pkgMap[a.size_estimate]?.toFixed(2) || '—'}, ~${filGMap[a.size_estimate] || '—'}g, ~${hrsMap[a.size_estimate] || '—'}hrs` : null,
-      conf: a.size_confidence,
-      empty: 'Cannot estimate'
-    },
-    {
-      field: 'Notes',
-      value: a.notes,
-      conf: null,
-      empty: null  // hide row if empty
-    }
   ];
 
-  rows.forEach(({ field, value, conf, empty }) => {
-    if (empty === null && !value) return; // hide empty notes row
-
+  rows.forEach(({ key, field, value, conf, empty, editable, options, display }) => {
     const row = document.createElement('div');
     row.className = 'analysis-row';
 
@@ -1726,13 +1717,40 @@ function renderAnalysisPanel(a) {
 
     const v = document.createElement('div');
     v.className = 'analysis-value' + (!value ? ' empty' : '');
-    v.textContent = value || empty;
+    v.style.flex = '1';
+
+    if (options) {
+      // Dropdown select
+      const sel = document.createElement('select');
+      sel.style.cssText = 'background:transparent;border:none;color:var(--text);font-family:"DM Mono",monospace;font-size:13px;width:100%;outline:none;-webkit-appearance:none;';
+      const none = document.createElement('option');
+      none.value = ''; none.textContent = empty;
+      sel.appendChild(none);
+      options.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt;
+        o.textContent = display ? display(opt) : opt.charAt(0).toUpperCase()+opt.slice(1);
+        if (opt === value || opt.toLowerCase() === value?.toLowerCase()) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.dataset.key = key;
+      v.appendChild(sel);
+    } else if (editable) {
+      // Editable text input
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.value = value || '';
+      inp.placeholder = empty;
+      inp.dataset.key = key;
+      v.appendChild(inp);
+    }
+
     row.appendChild(v);
 
     if (conf) {
       const c = document.createElement('div');
-      c.className = `analysis-confidence conf-${conf === 'high' ? 'high' : conf === 'medium' ? 'med' : 'low'}`;
-      c.textContent = conf === 'high' ? '●' : conf === 'medium' ? '◐' : '○';
+      c.className = `analysis-confidence conf-${conf==='high'?'high':conf==='medium'?'med':'low'}`;
+      c.textContent = conf==='high' ? '●' : conf==='medium' ? '◐' : '○';
       row.appendChild(c);
     }
 
@@ -1750,18 +1768,26 @@ function renderAnalysisPanel(a) {
 }
 
 function applyAnalysis() {
-  if (!lastAnalysis) return;
-  const a = lastAnalysis;
   const pkgMap  = { small: 1.50, medium: 2.50, large: 4.00 };
   const filGMap = { small: 50,   medium: 85,    large: 140  };
   const hrsMap  = { small: 2.5,  medium: 4,     large: 7    };
 
-  // Setup tab fields
-  if (a.character_name) document.getElementById('s-char').value = a.character_name;
-  if (a.object_type)    document.getElementById('s-sub').value  = a.object_type;
-  if (a.color_scheme) {
-    const mat = document.getElementById('s-material');
-    const target = a.color_scheme === 'Multi-Color' ? 'Multi-Color PLA' : 'Single-Color PLA';
+  // Read values from the editable panel fields
+  function getField(key) {
+    const el = document.querySelector(`[data-key="${key}"]`);
+    return el ? el.value.trim() : '';
+  }
+
+  const charName   = getField('character_name');
+  const objType    = getField('object_type');
+  const colorScheme= getField('color_scheme');
+  const sizeEst    = getField('size_estimate');
+
+  if (charName)    document.getElementById('s-char').value = charName;
+  if (objType)     document.getElementById('s-sub').value  = objType;
+  if (colorScheme) {
+    const mat    = document.getElementById('s-material');
+    const target = colorScheme === 'Multi-Color' ? 'Multi-Color PLA' : 'Single-Color PLA';
     Array.from(mat.options).forEach(o => { if (o.value === target) mat.value = target; });
   }
 
@@ -1769,19 +1795,17 @@ function applyAnalysis() {
   document.getElementById('s-filament').value = 'PLA+ Filament';
   document.getElementById('s-layer').value    = '0.4mm Layer Height';
 
-  // Listing tab calculator fields from size
-  if (a.size_estimate) {
-    const sz = a.size_estimate.toLowerCase();
-    if (filGMap[sz]) document.getElementById('l-fil-g').value   = filGMap[sz];
-    if (hrsMap[sz])  document.getElementById('l-hours').value   = hrsMap[sz];
-    if (pkgMap[sz])  document.getElementById('l-pkg').value     = pkgMap[sz].toFixed(2);
+  // Size → calculator
+  if (sizeEst) {
+    const sz = sizeEst.toLowerCase();
+    if (filGMap[sz]) document.getElementById('l-fil-g').value = filGMap[sz];
+    if (hrsMap[sz])  document.getElementById('l-hours').value = hrsMap[sz];
+    if (pkgMap[sz])  document.getElementById('l-pkg').value   = pkgMap[sz].toFixed(2);
   }
 
   calcPrice();
   dismissAnalysis();
   showToast('Fields updated ✓');
-
-  // Draw updated preview
   if (activeIdx >= 0) drawPreview();
 }
 
