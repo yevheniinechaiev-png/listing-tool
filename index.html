@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Listing Tool">
 <meta name="theme-color" content="#141414">
-<title>Listing Tool v1.5</title>
+<title>Listing Tool v1.6</title>
 
 <!-- PWA manifest inline -->
 <script>
@@ -667,7 +667,7 @@ input[type=number]::-webkit-inner-spin-button {
   <div class="header">
     <div>
       <div class="header-title">Listing Tool</div>
-      <div class="header-version">KeyCrafted Studio · v1.5</div>
+      <div class="header-version">KeyCrafted Studio · v1.6</div>
     </div>
     <div style="font-size:22px;">🗂️</div>
   </div>
@@ -989,6 +989,38 @@ input[type=number]::-webkit-inner-spin-button {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+/* ══════════════════════════════════
+   CONFIG — load from config.json
+══════════════════════════════════ */
+let CONFIG = null;
+
+async function loadConfig() {
+  try {
+    const res = await fetch('./config.json?v=' + Date.now());
+    if (!res.ok) throw new Error('config.json not found');
+    CONFIG = await res.json();
+    console.log('[config] loaded ✓');
+  } catch(err) {
+    console.warn('[config] failed to load, using defaults:', err.message);
+    CONFIG = {
+      store_name: 'KeyCrafted Studio',
+      ships_from: 'United States',
+      audience: 'US and Canada',
+      always_include_colors: 'Available in multiple colors or custom multicolor by request.',
+      size_estimates: {
+        small:  { dims_in: '3.0 × 3.0 × 3.5 in', weight_g: 60,  weight_oz: 2.1 },
+        medium: { dims_in: '4.5 × 4.5 × 5.0 in', weight_g: 110, weight_oz: 3.9 },
+        large:  { dims_in: '6.0 × 6.0 × 7.0 in', weight_g: 180, weight_oz: 6.3 }
+      },
+      listing_prompt: null,
+      analyze_prompt: null
+    };
+  }
+}
+
+// Load config on startup
+loadConfig();
 
 /* ══════════════════════════════════
    TABS
@@ -1632,21 +1664,19 @@ async function analyzePhoto() {
     const mimeMatch = src.match(/data:(image\/\w+);/);
     const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
 
-    const prompt = `You are analyzing a photo of a 3D printed product for an Etsy listing.
-
-Examine the image carefully and extract the following. Be concise and accurate.
-Only fill fields you are confident about — use null for anything unclear.
-
+    const prompt = CONFIG?.analyze_prompt ||
+      `You are analyzing a photo of a desk accessory product for an Etsy listing.
+Examine the image carefully. Only fill fields you are confident about — use null for anything unclear.
 Respond ONLY with valid JSON, no markdown:
 {
-  "character_name": "The character or subject name (e.g. Mario, Master Chief, Michelangelo). null if unclear.",
-  "color_scheme": "Multi-Color or Single-Color based on visible filament colors. null if unclear.",
-  "object_type": "Short subtitle describing the object type, e.g. Pen & Pencil Holder · Desk Organizer. null if unclear.",
-  "size_estimate": "small, medium, or large based on visual proportions relative to any visible reference objects. small = under 10cm, medium = 10-20cm, large = over 20cm.",
+  "character_name": "The character or subject name. null if unclear.",
+  "color_scheme": "Multi-Color or Single-Color. null if unclear.",
+  "object_type": "Short subtitle e.g. Pen & Pencil Holder · Desk Organizer. null if unclear.",
+  "size_estimate": "small, medium, or large. small = under 10cm, medium = 10-20cm, large = over 20cm.",
   "size_confidence": "high, medium, or low",
   "character_confidence": "high, medium, or low",
   "color_confidence": "high, medium, or low",
-  "notes": "One short sentence of any other relevant observations, or null."
+  "notes": "One short observation, or null."
 }`;
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1876,14 +1906,23 @@ async function generateListing() {
   const icon   = document.getElementById('l-gen-icon');
   const apiKey = document.getElementById('l-apikey').value.trim();
 
-  const character = document.getElementById('s-char').value||'Character';
-  const subtitle  = document.getElementById('s-sub').value||'Pen Holder';
-  const material  = document.getElementById('s-material').value||'PLA';
-  const filament  = document.getElementById('s-filament').value||'PLA+';
-  const layer     = document.getElementById('s-layer').value||'0.2mm';
-  const price     = document.getElementById('r-price').textContent||'$19.99';
-  const hours     = document.getElementById('l-hours').value||'4';
-  const filG      = document.getElementById('l-fil-g').value||'80';
+  const character = document.getElementById('s-char').value   || 'Character';
+  const subtitle  = document.getElementById('s-sub').value    || 'Pen Holder · Desk Organizer';
+  const material  = document.getElementById('s-material').value || 'Multi-Color PLA';
+  const price     = document.getElementById('r-price').textContent || '$19.99';
+
+  // Get size info from config
+  const cfg       = CONFIG || {};
+  const sizeMap   = cfg.size_estimates || {};
+  const sizeEst   = lastAnalysis?.size_estimate?.toLowerCase() || 'medium';
+  const sizeData  = sizeMap[sizeEst] || sizeMap['medium'] || { dims_in: '?', weight_g: '?', weight_oz: '?' };
+  const sizeConf  = lastAnalysis?.size_confidence || 'low';
+
+  // Warning if size confidence is low or no analysis done
+  const warnings = [];
+  if (!lastAnalysis) warnings.push('⚠️ No photo analysis done — size estimates are defaults. Verify dimensions before posting.');
+  else if (sizeConf === 'low') warnings.push('⚠️ Size confidence is LOW — please verify dimensions before posting.');
+  else if (sizeConf === 'medium') warnings.push('ℹ️ Size confidence is MEDIUM — double-check dimensions before posting.');
 
   btn.disabled = true;
   icon.innerHTML = '<span class="spinner"></span>';
@@ -1893,28 +1932,33 @@ async function generateListing() {
   document.getElementById('l-out-desc').textContent  = 'Generating…';
   document.getElementById('l-out-tags').textContent  = 'Generating…';
 
-  const prompt = `You are writing an Etsy product listing for a 3D printed pen holder from "KeyCrafted Studio".
+  // Build prompt from config, substituting variables
+  let prompt = cfg.listing_prompt || '';
 
-Product:
-- Character: ${character}
-- Type: ${subtitle}
-- Material: ${material}
-- Filament: ${filament}
-- Layer height: ${layer}
-- Print time: ~${hours} hours
-- Filament used: ~${filG}g
-- Price: ${price}
-- Ships from: United States
-- Audience: US and Canada
+  if (!prompt) {
+    // Fallback minimal prompt if config not loaded
+    prompt = `Write an Etsy listing for a desk pen holder featuring {character}. Structure: opening paragraph, 🧩 Features, 🧱 Assembly Includes, 📐 Dimensions, ⚖️ Weight, 🎨 Material, 🛠️ Ideal For. Return JSON with title, description, tags.`;
+  }
 
-Tone: friendly, conversational, warm — like a maker talking to a fan.
+  // Replace all template variables
+  const vars = {
+    store_name:           cfg.store_name || 'KeyCrafted Studio',
+    ships_from:           cfg.ships_from || 'United States',
+    audience:             cfg.audience   || 'US and Canada',
+    always_include_colors: cfg.always_include_colors || 'Available in multiple colors or custom multicolor by request.',
+    character,
+    subtitle,
+    material,
+    price,
+    size_label:  sizeEst.charAt(0).toUpperCase() + sizeEst.slice(1),
+    dims_in:     sizeData.dims_in,
+    weight_g:    sizeData.weight_g,
+    weight_oz:   sizeData.weight_oz,
+  };
 
-Respond ONLY with valid JSON, no markdown, no explanation:
-{
-  "title": "Etsy title max 140 chars, SEO optimized",
-  "description": "3-4 paragraph friendly description covering: what it is and who it's for, craftsmanship and materials, practical details (fits standard pens/pencils, sturdy base), warm closing with care instructions (wipe clean, avoid direct sunlight)",
-  "tags": "exactly 13 comma-separated Etsy tags, SEO optimized"
-}`;
+  Object.entries(vars).forEach(([k, v]) => {
+    prompt = prompt.replaceAll(`{${k}}`, v);
+  });
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1927,36 +1971,39 @@ Respond ONLY with valid JSON, no markdown, no explanation:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
+        max_tokens: 1500,
         messages: [{ role: 'user', content: prompt }]
       })
     });
 
-    if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||`HTTP ${res.status}`); }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || `HTTP ${res.status}`); }
 
     const data   = await res.json();
     const raw    = data.content[0].text.trim().replace(/```json|```/g,'').trim();
     const parsed = JSON.parse(raw);
 
     const titleEl = document.getElementById('l-out-title');
-    titleEl.textContent = parsed.title||'—';
+    titleEl.textContent = parsed.title || '—';
     titleEl.classList.remove('output-dim');
     document.getElementById('l-title-count').textContent = `${(parsed.title||'').length} / 140`;
 
     const descEl = document.getElementById('l-out-desc');
-    descEl.textContent = parsed.description||'—';
+    // Prepend any warnings to the description output
+    const warningText = warnings.length ? warnings.join('\n') + '\n\n─────────────────\n\n' : '';
+    descEl.textContent = warningText + (parsed.description || '—');
     descEl.classList.remove('output-dim');
 
     const tagsEl = document.getElementById('l-out-tags');
-    tagsEl.textContent = parsed.tags||'—';
+    tagsEl.textContent = parsed.tags || '—';
     tagsEl.classList.remove('output-dim');
 
-    showToast('Listing generated ✓');
+    showToast(warnings.length ? '⚠️ Check dimension warnings' : 'Listing generated ✓');
 
   } catch(err) {
     document.getElementById('l-out-title').textContent = `Error: ${err.message}`;
     document.getElementById('l-out-desc').textContent  = 'Check your API key and try again.';
     document.getElementById('l-out-tags').textContent  = '—';
+    showToast('Generation failed');
   }
 
   btn.disabled = false;
