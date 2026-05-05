@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Listing Tool">
 <meta name="theme-color" content="#141414">
-<title>Listing Tool v1.6</title>
+<title>Listing Tool v1.7</title>
 
 <!-- PWA manifest inline -->
 <script>
@@ -667,7 +667,7 @@ input[type=number]::-webkit-inner-spin-button {
   <div class="header">
     <div>
       <div class="header-title">Listing Tool</div>
-      <div class="header-version">KeyCrafted Studio · v1.6</div>
+      <div class="header-version">KeyCrafted Studio · v1.7</div>
     </div>
     <div style="font-size:22px;">🗂️</div>
   </div>
@@ -694,8 +694,24 @@ input[type=number]::-webkit-inner-spin-button {
       <div class="section-head">Product Info</div>
 
       <div class="field">
-        <label>Character Name</label>
-        <input type="text" id="s-char" value="Michelangelo" placeholder="e.g. Michelangelo" />
+        <label>Character / Subject Name</label>
+        <input type="text" id="s-char" value="" placeholder="e.g. Michelangelo, Master Chief, Mario…" />
+      </div>
+
+      <div class="field">
+        <label>Subtitle / Product Type</label>
+        <input type="text" id="s-sub" value="" placeholder="e.g. Pen Holder · Desk Organizer, Figure, Helmet…" />
+      </div>
+
+      <div class="two-col">
+        <div class="field">
+          <label>Collection Name</label>
+          <input type="text" id="s-collection" value="" placeholder="e.g. Desk Companion" />
+        </div>
+        <div class="field">
+          <label>Series Name</label>
+          <input type="text" id="s-series-name" value="" placeholder="e.g. Pen Holder Series" />
+        </div>
       </div>
 
       <div class="two-col">
@@ -712,18 +728,13 @@ input[type=number]::-webkit-inner-spin-button {
         </div>
       </div>
 
-      <div class="field">
-        <label>Subtitle</label>
-        <input type="text" id="s-sub" value="Pen & Pencil Holder · Desk Organizer" />
-      </div>
-
       <div class="section-head">Print Specs</div>
 
       <div class="field">
         <label>Material</label>
         <select id="s-material">
-          <option value="Multi-Color PLA">Multi-Color PLA</option>
-          <option value="Single-Color PLA">Single-Color PLA</option>
+          <option value="Multi-Color">Multi-Color</option>
+          <option value="Single-Color">Single-Color</option>
         </select>
       </div>
 
@@ -731,19 +742,19 @@ input[type=number]::-webkit-inner-spin-button {
         <div class="field">
           <label>Filament Type</label>
           <select id="s-filament">
-            <option value="PLA+ Filament">PLA+</option>
-            <option value="ABS Filament">ABS</option>
-            <option value="PETG Filament">PETG</option>
+            <option value="PLA+">PLA+</option>
+            <option value="ABS">ABS</option>
+            <option value="PETG">PETG</option>
             <option value="Carbon Fiber">Carbon Fiber</option>
-            <option value="TPU Flexible">TPU</option>
+            <option value="TPU">TPU</option>
           </select>
         </div>
         <div class="field">
           <label>Layer Height</label>
           <select id="s-layer">
-            <option value="0.2mm Layer Height">0.2mm</option>
-            <option value="0.4mm Layer Height">0.4mm</option>
-            <option value="0.6mm Layer Height">0.6mm</option>
+            <option value="0.2mm">0.2mm</option>
+            <option value="0.4mm" selected>0.4mm</option>
+            <option value="0.6mm">0.6mm</option>
           </select>
         </div>
       </div>
@@ -1353,9 +1364,27 @@ function drawFrameOverlay(ctx, S, isDark, ratio) {
   ctx.fillText(charName, 52*ratio, pY+74*ratio);
 
   // Store name top
+  const previewCol = (document.getElementById('s-collection')?.value || '').toUpperCase();
+  const previewSer = (document.getElementById('s-series-name')?.value || '').toUpperCase();
   ctx.font=`400 ${9*ratio}px "DM Mono",monospace`;
   ctx.fillStyle=isDark?'rgba(220,195,150,0.72)':'rgba(80,60,35,0.65)';
   ctx.fillText('KEYCRAFTED STUDIO', 56*ratio, 57*ratio);
+
+  // Collection name center
+  if (previewCol) {
+    ctx.font=`400 ${8.5*ratio}px "DM Mono",monospace`;
+    ctx.fillStyle=isDark?'rgba(220,195,150,0.65)':'rgba(90,68,40,0.65)';
+    const btW = ctx.measureText(previewCol).width;
+    ctx.fillText(previewCol, S/2-btW/2, 57*ratio);
+  }
+
+  // Series name top right
+  if (previewSer) {
+    ctx.font=`400 ${7.5*ratio}px "DM Mono",monospace`;
+    ctx.fillStyle=isDark?'rgba(200,170,110,0.42)':'rgba(100,75,45,0.42)';
+    const slW2 = ctx.measureText(previewSer).width;
+    ctx.fillText(previewSer, S-56*ratio-slW2, 102*ratio);
+  }
 }
 
 /* ══════════════════════════════════
@@ -1515,6 +1544,10 @@ function drawFrameOverlayFull(ctx, S, isDark) {
   corner(24,24,1,1);corner(S-24,24,-1,1);corner(24,S-24,1,-1);corner(S-24,S-24,-1,-1);
 
   // Top row
+  const colName  = (document.getElementById('s-collection')?.value  || '').toUpperCase();
+  const serName  = (document.getElementById('s-series-name')?.value || '').toUpperCase();
+  const subTitle = document.getElementById('s-sub')?.value || '';
+
   ctx.font='400 9px "DM Mono",monospace';
   ctx.fillStyle=isDark?'rgba(220,195,150,0.72)':'rgba(80,60,35,0.65)';
   ctx.fillText('KEYCRAFTED STUDIO', 56, 57);
@@ -1527,28 +1560,31 @@ function drawFrameOverlayFull(ctx, S, isDark) {
 
   ctx.font='400 7.5px "DM Mono",monospace';
   ctx.fillStyle=isDark?'rgba(200,170,110,0.42)':'rgba(100,75,45,0.42)';
-  const sl='PEN HOLDER SERIES', slW=ctx.measureText(sl).width;
+  const sl = serName || 'KEYCRAFTED STUDIO', slW=ctx.measureText(sl).width;
   ctx.fillText(sl, S-56-slW, 102);
 
   ctx.font='400 8.5px "DM Mono",monospace';
   ctx.fillStyle=isDark?'rgba(220,195,150,0.65)':'rgba(90,68,40,0.65)';
-  const bt='DESK COMPANION COLLECTION', btW=ctx.measureText(bt).width;
+  const bt = colName || 'KEYCRAFTED STUDIO', btW=ctx.measureText(bt).width;
   ctx.fillText(bt, S/2-btW/2, 57);
   const blc=isDark?'rgba(200,170,110,0.45)':'rgba(110,82,48,0.4)';
   gradLine(63,S/2-60,S/2+60,blc); gradLine(49,S/2-60,S/2+60,blc);
   ctx.font='italic 300 11px "Cormorant Garamond",serif';
   ctx.fillStyle=isDark?'rgba(200,170,120,0.5)':'rgba(110,82,48,0.5)';
-  const bs='3D Printed · Hand Finished', bsW=ctx.measureText(bs).width;
+  const bs='Handcrafted · Made to Order', bsW=ctx.measureText(bs).width;
   ctx.fillText(bs, S/2-bsW/2, 76);
 
   // Side labels
   ctx.save();ctx.font='400 7.5px "DM Mono",monospace';
   ctx.fillStyle=isDark?'rgba(200,170,110,0.28)':'rgba(100,75,45,0.28)';
-  ctx.translate(14,S/2);ctx.rotate(-Math.PI/2);ctx.fillText('PEN HOLDER · OFFICE SERIES',-60,0);ctx.restore();
+  ctx.translate(14,S/2);ctx.rotate(-Math.PI/2);
+  ctx.fillText((subTitle || 'KEYCRAFTED STUDIO').toUpperCase().substring(0,30), -60, 0);
+  ctx.restore();
   ctx.save();ctx.translate(S-14,S/2);ctx.rotate(Math.PI/2);
   ctx.font='400 7.5px "DM Mono",monospace';
   ctx.fillStyle=isDark?'rgba(200,170,110,0.28)':'rgba(100,75,45,0.28)';
-  ctx.fillText('FDM · PLA+ · MULTI-COLOR',-55,0);ctx.restore();
+  ctx.fillText('KEYCRAFTED STUDIO', -55, 0);
+  ctx.restore();
 
   // Bottom panel
   const pY=S-188;
@@ -1817,13 +1853,13 @@ function applyAnalysis() {
   if (objType)     document.getElementById('s-sub').value  = objType;
   if (colorScheme) {
     const mat    = document.getElementById('s-material');
-    const target = colorScheme === 'Multi-Color' ? 'Multi-Color PLA' : 'Single-Color PLA';
-    Array.from(mat.options).forEach(o => { if (o.value === target) mat.value = target; });
+    const target = colorScheme.includes('Multi') ? 'Multi-Color' : 'Single-Color';
+    mat.value = target;
   }
 
   // Always set defaults
-  document.getElementById('s-filament').value = 'PLA+ Filament';
-  document.getElementById('s-layer').value    = '0.4mm Layer Height';
+  document.getElementById('s-filament').value = 'PLA+';
+  document.getElementById('s-layer').value    = '0.4mm';
 
   // Size → calculator
   if (sizeEst) {
